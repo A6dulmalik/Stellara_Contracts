@@ -5,7 +5,6 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 
-
 // Entities
 import { User } from './entities/user.entity';
 import { WalletBinding } from './entities/wallet-binding.entity';
@@ -48,7 +47,10 @@ import { AuditModule } from '../audit/audit.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET', 'default-secret-change-in-production'),
+        secret: configService.get(
+          'JWT_SECRET',
+          'default-secret-change-in-production',
+        ),
         signOptions: {
           expiresIn: configService.get('JWT_ACCESS_EXPIRATION', '15m'),
         },
@@ -69,10 +71,10 @@ import { AuditModule } from '../audit/audit.module';
     JwtAuthService,
     ApiTokenService,
     RateLimitService,
-    
+
     // Strategies
     JwtStrategy,
-    
+
     // Guards
     JwtAuthGuard,
     ApiTokenGuard,

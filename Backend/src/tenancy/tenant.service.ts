@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
@@ -31,9 +36,13 @@ export class TenantService {
     ownerId?: string;
   }): Promise<Tenant> {
     // Check if subdomain or name already exists
-    const existingTenant = await this.findBySubdomain(createTenantDto.subdomain);
+    const existingTenant = await this.findBySubdomain(
+      createTenantDto.subdomain,
+    );
     if (existingTenant) {
-      throw new ConflictException(`Tenant with subdomain ${createTenantDto.subdomain} already exists`);
+      throw new ConflictException(
+        `Tenant with subdomain ${createTenantDto.subdomain} already exists`,
+      );
     }
 
     const tenant = new Tenant();
@@ -76,7 +85,7 @@ export class TenantService {
    */
   async findByCustomDomain(customDomain: string): Promise<Tenant | null> {
     if (!customDomain) return null;
-    
+
     return await this.tenantRepository.findOne({
       where: { customDomain },
     });
@@ -99,18 +108,25 @@ export class TenantService {
     if (!tenant) {
       throw new NotFoundException(`Tenant with ID ${id} not found`);
     }
-    
+
     // Update allowed fields only
     if (updateTenantDto.name) tenant.name = updateTenantDto.name;
     if (updateTenantDto.subdomain) tenant.subdomain = updateTenantDto.subdomain;
-    if (updateTenantDto.customDomain !== undefined) tenant.customDomain = updateTenantDto.customDomain;
-    if (updateTenantDto.description !== undefined) tenant.description = updateTenantDto.description;
+    if (updateTenantDto.customDomain !== undefined)
+      tenant.customDomain = updateTenantDto.customDomain;
+    if (updateTenantDto.description !== undefined)
+      tenant.description = updateTenantDto.description;
     if (updateTenantDto.status) tenant.status = updateTenantDto.status;
-    if (updateTenantDto.isPremium !== undefined) tenant.isPremium = updateTenantDto.isPremium;
-    if (updateTenantDto.metadata !== undefined) tenant.metadata = updateTenantDto.metadata;
-    if (updateTenantDto.settings !== undefined) tenant.settings = updateTenantDto.settings;
-    if (updateTenantDto.features !== undefined) tenant.features = updateTenantDto.features;
-    if (updateTenantDto.limits !== undefined) tenant.limits = updateTenantDto.limits;
+    if (updateTenantDto.isPremium !== undefined)
+      tenant.isPremium = updateTenantDto.isPremium;
+    if (updateTenantDto.metadata !== undefined)
+      tenant.metadata = updateTenantDto.metadata;
+    if (updateTenantDto.settings !== undefined)
+      tenant.settings = updateTenantDto.settings;
+    if (updateTenantDto.features !== undefined)
+      tenant.features = updateTenantDto.features;
+    if (updateTenantDto.limits !== undefined)
+      tenant.limits = updateTenantDto.limits;
 
     return await this.tenantRepository.save(tenant);
   }
@@ -154,7 +170,12 @@ export class TenantService {
   /**
    * Set tenant configuration
    */
-  async setConfig(tenantId: string, key: string, value: string, metadata?: Record<string, any>): Promise<void> {
+  async setConfig(
+    tenantId: string,
+    key: string,
+    value: string,
+    metadata?: Record<string, any>,
+  ): Promise<void> {
     let config = await this.tenantConfigRepository.findOne({
       where: { tenantId, key },
     });
@@ -182,7 +203,7 @@ export class TenantService {
     });
 
     const result: Record<string, any> = {};
-    configs.forEach(config => {
+    configs.forEach((config) => {
       result[config.key] = config.value;
     });
 
@@ -192,7 +213,12 @@ export class TenantService {
   /**
    * Update tenant usage metrics
    */
-  async recordUsage(tenantId: string, metric: string, value: number, metadata?: Record<string, any>): Promise<void> {
+  async recordUsage(
+    tenantId: string,
+    metric: string,
+    value: number,
+    metadata?: Record<string, any>,
+  ): Promise<void> {
     const usage = new TenantUsage();
     usage.tenantId = tenantId;
     usage.metric = metric;
@@ -205,8 +231,14 @@ export class TenantService {
   /**
    * Get tenant usage for a specific metric
    */
-  async getUsage(tenantId: string, metric: string, startDate?: Date, endDate?: Date): Promise<number> {
-    const queryBuilder = this.tenantUsageRepository.createQueryBuilder('usage')
+  async getUsage(
+    tenantId: string,
+    metric: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<number> {
+    const queryBuilder = this.tenantUsageRepository
+      .createQueryBuilder('usage')
       .where('usage.tenantId = :tenantId', { tenantId })
       .andWhere('usage.metric = :metric', { metric });
 
@@ -218,14 +250,21 @@ export class TenantService {
       queryBuilder.andWhere('usage.createdAt <= :endDate', { endDate });
     }
 
-    const results = await queryBuilder.orderBy('usage.createdAt', 'DESC').getMany();
+    const results = await queryBuilder
+      .orderBy('usage.createdAt', 'DESC')
+      .getMany();
     return results.reduce((sum, record) => sum + Number(record.value), 0);
   }
 
   /**
    * Create tenant invitation
    */
-  async createInvitation(tenantId: string, email: string, invitedBy: string, expiresAt?: Date): Promise<TenantInvitation> {
+  async createInvitation(
+    tenantId: string,
+    email: string,
+    invitedBy: string,
+    expiresAt?: Date,
+  ): Promise<TenantInvitation> {
     // Check if invitation already exists
     const existingInvitation = await this.tenantInvitationRepository.findOne({
       where: { email, tenantId, status: 'pending' },
@@ -239,7 +278,8 @@ export class TenantService {
     invitation.email = email;
     invitation.tenantId = tenantId;
     invitation.invitedBy = invitedBy;
-    invitation.expiresAt = expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days default
+    invitation.expiresAt =
+      expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days default
     invitation.status = 'pending';
 
     return await this.tenantInvitationRepository.save(invitation);
@@ -248,14 +288,17 @@ export class TenantService {
   /**
    * Accept invitation
    */
-  async acceptInvitation(token: string, userId: string): Promise<TenantInvitation> {
+  async acceptInvitation(
+    token: string,
+    userId: string,
+  ): Promise<TenantInvitation> {
     // In a real implementation, token would be stored and verified
     // For now, we'll simulate by accepting the first pending invitation for the user's email
     const invitation = await this.tenantInvitationRepository.findOne({
-      where: { 
+      where: {
         // Using email as a proxy for token in this simplified version
         email: token,
-        status: 'pending' 
+        status: 'pending',
       },
     });
 

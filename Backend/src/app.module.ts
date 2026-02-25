@@ -52,7 +52,6 @@ import { PersonalizationRule } from './personalization/entities/personalization-
 import { Experiment } from './personalization/entities/experiment.entity';
 import { ExperimentAssignment } from './personalization/entities/experiment-assignment.entity';
 
-
 @Module({
   imports: [
     // logging comes first so correlation middleware wraps every request
@@ -67,7 +66,7 @@ import { ExperimentAssignment } from './personalization/entities/experiment-assi
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const dbType = configService.get('DB_TYPE') || 'sqlite';
-        
+
         const baseConfig: any = {
           type: dbType,
           synchronize: configService.get('NODE_ENV') === 'development',
@@ -103,13 +102,15 @@ import { ExperimentAssignment } from './personalization/entities/experiment-assi
         };
 
         if (dbType === 'sqlite') {
-          baseConfig.database = configService.get('DB_DATABASE') || './stellar-events.db';
+          baseConfig.database =
+            configService.get('DB_DATABASE') || './stellar-events.db';
         } else {
           baseConfig.host = configService.get('DB_HOST') || 'localhost';
           baseConfig.port = configService.get('DB_PORT') || 5432;
           baseConfig.username = configService.get('DB_USERNAME') || 'postgres';
           baseConfig.password = configService.get('DB_PASSWORD') || 'password';
-          baseConfig.database = configService.get('DB_DATABASE') || 'stellara_workflows';
+          baseConfig.database =
+            configService.get('DB_DATABASE') || 'stellara_workflows';
         }
 
         return baseConfig;

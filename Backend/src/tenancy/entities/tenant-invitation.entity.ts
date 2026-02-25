@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Tenant } from './tenant.entity';
 
 @Entity('tenant_invitations')
@@ -9,7 +17,11 @@ export class TenantInvitation {
   @Column({ unique: true })
   email: string;
 
-  @Column({ type: 'enum', enum: ['pending', 'accepted', 'expired', 'cancelled'], default: 'pending' })
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'accepted', 'expired', 'cancelled'],
+    default: 'pending',
+  })
   status: string;
 
   @Column({ nullable: true })
@@ -34,7 +46,7 @@ export class TenantInvitation {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => Tenant, tenant => tenant.invitations)
+  @ManyToOne(() => Tenant, (tenant) => tenant.invitations)
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
 

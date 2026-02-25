@@ -1,14 +1,16 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Inject } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AiRequestDto } from './dto/ai-request.dto';
+import { AI_SERVICE } from './constants';
+import { AiService } from './ai.service';
 
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: any) {}
+  constructor(@Inject(AI_SERVICE) private readonly aiService: AiService) {}
 
   @Throttle({ default: { limit: 5, ttl: 10000 } })
   @Post('prompt')
-  async prompt(@Body() dto: AiRequestDto) {
-    return this.aiService.handlePrompt(dto);
+  async prompt(@Body() dto: AiRequestDto): Promise<any> {
+    return await this.aiService.handlePrompt(dto);
   }
 }

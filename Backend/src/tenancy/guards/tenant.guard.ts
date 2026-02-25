@@ -3,9 +3,11 @@ import { Observable } from 'rxjs';
 
 @Injectable()
 export class TenantGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+  canActivate(
+    context: ExecutionContext,
+  ): boolean | Promise<boolean> | Observable<boolean> {
     const request = context.switchToHttp().getRequest();
-    
+
     // Check if tenant context exists
     if (!request.tenantId) {
       // Optionally throw an error or redirect to tenant selection

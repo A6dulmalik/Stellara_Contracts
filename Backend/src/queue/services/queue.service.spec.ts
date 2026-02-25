@@ -83,9 +83,17 @@ describe('QueueService', () => {
       const jobData = { test: 'data' };
       mockQueue.add.mockResolvedValue(mockJob);
 
-      const result = await service.addJob('deploy-contract', 'test-job', jobData);
+      const result = await service.addJob(
+        'deploy-contract',
+        'test-job',
+        jobData,
+      );
 
-      expect(mockQueue.add).toHaveBeenCalledWith('test-job', jobData, expect.any(Object));
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        'test-job',
+        jobData,
+        expect.any(Object),
+      );
       expect(result).toEqual(mockJob);
     });
 
@@ -118,18 +126,23 @@ describe('QueueService', () => {
 
       const result = await service.getJobInfo('deploy-contract', '123');
 
-      expect(result).toEqual(expect.objectContaining({
-        id: '123',
-        name: 'test-job',
-        status: JobStatus.COMPLETED,
-        progress: 100,
-      }));
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: '123',
+          name: 'test-job',
+          status: JobStatus.COMPLETED,
+          progress: 100,
+        }),
+      );
     });
 
     it('should return null for non-existing job', async () => {
       mockQueue.getJob.mockResolvedValue(null);
 
-      const result = await service.getJobInfo('deploy-contract', 'non-existent');
+      const result = await service.getJobInfo(
+        'deploy-contract',
+        'non-existent',
+      );
 
       expect(result).toBeNull();
     });
@@ -178,9 +191,9 @@ describe('QueueService', () => {
     it('should throw error for non-existing job', async () => {
       mockQueue.getJob.mockResolvedValue(null);
 
-      await expect(service.requeueJob('deploy-contract', 'non-existent')).rejects.toThrow(
-        'Job non-existent not found',
-      );
+      await expect(
+        service.requeueJob('deploy-contract', 'non-existent'),
+      ).rejects.toThrow('Job non-existent not found');
     });
 
     it('should preserve job data and options when requeuing', async () => {
@@ -275,7 +288,8 @@ describe('QueueService', () => {
 
   describe('purgeQueue', () => {
     it('should purge failed jobs from queue', async () => {
-      mockQueue.clean.mockResolvedValue(10);
+      const mockJobs = new Array(10).fill({});
+      mockQueue.clean.mockResolvedValue(mockJobs);
 
       const result = await service.purgeQueue('deploy-contract');
 

@@ -21,7 +21,9 @@ async function bootstrap() {
   // Configure Swagger
   const config = new DocumentBuilder()
     .setTitle('Stellara API')
-    .setDescription('API for authentication, monitoring Stellar network events, and delivering webhooks')
+    .setDescription(
+      'API for authentication, monitoring Stellar network events, and delivering webhooks',
+    )
     .setVersion('1.0')
     .addTag('Authentication')
     .addTag('Stellar Monitor')

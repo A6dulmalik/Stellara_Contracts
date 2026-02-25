@@ -20,9 +20,11 @@ export class TenantIsolationService {
   /**
    * Add tenant filter to a query builder
    */
-  addTenantFilter<T extends Object>(queryBuilder: SelectQueryBuilder<T>): SelectQueryBuilder<T> {
+  addTenantFilter<T extends object>(
+    queryBuilder: SelectQueryBuilder<T>,
+  ): SelectQueryBuilder<T> {
     const tenantId = this.request.tenantId;
-    
+
     if (!tenantId) {
       // If no tenant context, we might want to throw an error or handle differently
       // depending on your security requirements
@@ -38,9 +40,11 @@ export class TenantIsolationService {
    * Get tenant-scoped repository for a given entity
    * This is a higher-order function that returns a filtered repository
    */
-  getTenantScopedRepository<Entity extends Object>(repository: Repository<Entity>): Repository<Entity> {
+  getTenantScopedRepository<Entity extends object>(
+    repository: Repository<Entity>,
+  ): Repository<Entity> {
     const tenantId = this.request.tenantId;
-    
+
     if (!tenantId) {
       // Return original repository if no tenant context
       return repository;
@@ -49,18 +53,23 @@ export class TenantIsolationService {
     // Return a proxy that adds tenant filtering to all find operations
     return new Proxy(repository, {
       get: (target: Repository<Entity>, prop: string) => {
-        if (prop === 'find' || prop === 'findOne' || prop === 'count' || prop === 'findAndCount') {
+        if (
+          prop === 'find' ||
+          prop === 'findOne' ||
+          prop === 'count' ||
+          prop === 'findAndCount'
+        ) {
           return async (...args: any[]) => {
             const queryBuilder = target.createQueryBuilder();
-            
+
             // Add tenant filter
             queryBuilder.andWhere('tenant_id = :tenantId', { tenantId });
-            
+
             // Apply any additional conditions from the original method
             if (args[0]?.where) {
               queryBuilder.andWhere(args[0].where);
             }
-            
+
             // Execute based on the original method
             if (prop === 'find') {
               return queryBuilder.getMany();
@@ -75,7 +84,7 @@ export class TenantIsolationService {
             }
           };
         }
-        
+
         return target[prop];
       },
     });
@@ -86,7 +95,7 @@ export class TenantIsolationService {
    */
   async verifyUserTenantAccess(userId: string): Promise<boolean> {
     const tenantId = this.request.tenantId;
-    
+
     if (!tenantId) {
       return false;
     }
@@ -120,7 +129,7 @@ export class TenantIsolationService {
     if (!tenant || !tenant.features) {
       return false;
     }
-    
+
     return tenant.features[feature] === true;
   }
 

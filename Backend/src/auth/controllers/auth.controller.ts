@@ -42,7 +42,7 @@ export class AuthController {
     private readonly jwtAuthService: JwtAuthService,
     private readonly apiTokenService: ApiTokenService,
     private readonly configService: ConfigService,
-    private readonly auditService: AuditService, 
+    private readonly auditService: AuditService,
   ) {}
 
   @Post('nonce')
@@ -125,23 +125,24 @@ export class AuthController {
     let isNewUser = false;
 
     if (!user) {
-     user = await this.walletService.createUserWithWallet(dto.publicKey);
-     isNewUser = true;
-  }
+      user = await this.walletService.createUserWithWallet(dto.publicKey);
+      isNewUser = true;
+    }
 
-     if (isNewUser) {await this.auditService.logAction(  'USER_CREATED',  user.id,  user.id,
-      { wallet: dto.publicKey }
-    );
-}
-
+    if (isNewUser) {
+      await this.auditService.logAction('USER_CREATED', user.id, user.id, {
+        wallet: dto.publicKey,
+      });
+    }
 
     // Update wallet last used
     await this.walletService.updateLastUsed(dto.publicKey);
 
     // Generate tokens
     const accessToken = await this.jwtAuthService.generateAccessToken(user.id);
-    const refreshTokenData =
-      await this.jwtAuthService.generateRefreshToken(user.id);
+    const refreshTokenData = await this.jwtAuthService.generateRefreshToken(
+      user.id,
+    );
 
     return {
       accessToken,

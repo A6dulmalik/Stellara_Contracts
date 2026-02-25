@@ -4,7 +4,7 @@ import { TenantIsolationService } from '../services/tenant-isolation.service';
 /**
  * Creates a tenant-aware repository wrapper that automatically applies tenant filters
  */
-export class TenantAwareRepository<T extends Object> {
+export class TenantAwareRepository<T extends object> {
   constructor(
     private readonly baseRepository: Repository<T>,
     private readonly tenantIsolationService: TenantIsolationService,
@@ -22,7 +22,9 @@ export class TenantAwareRepository<T extends Object> {
    * Create a query builder with tenant filter applied
    */
   createQueryBuilder(alias?: string): SelectQueryBuilder<T> {
-    const qb = this.baseRepository.createQueryBuilder(alias || this.entityName.toLowerCase());
+    const qb = this.baseRepository.createQueryBuilder(
+      alias || this.entityName.toLowerCase(),
+    );
     return this.tenantIsolationService.addTenantFilter(qb);
   }
 
@@ -31,29 +33,32 @@ export class TenantAwareRepository<T extends Object> {
    */
   async find(options?: any): Promise<T[]> {
     const queryBuilder = this.createQueryBuilder();
-    
+
     if (options?.where) {
       queryBuilder.where(options.where);
     }
-    
+
     if (options?.relations) {
       queryBuilder.leftJoinAndSelect(`${queryBuilder.alias}.tenant`, 'tenant');
     }
-    
+
     if (options?.order) {
       Object.entries(options.order).forEach(([field, direction]) => {
-        queryBuilder.addOrderBy(`${queryBuilder.alias}.${field}`, direction as 'ASC' | 'DESC');
+        queryBuilder.addOrderBy(
+          `${queryBuilder.alias}.${field}`,
+          direction as 'ASC' | 'DESC',
+        );
       });
     }
-    
+
     if (options?.skip) {
       queryBuilder.skip(options.skip);
     }
-    
+
     if (options?.take) {
       queryBuilder.take(options.take);
     }
-    
+
     return await queryBuilder.getMany();
   }
 
@@ -62,15 +67,15 @@ export class TenantAwareRepository<T extends Object> {
    */
   async findOne(options: any): Promise<T | null> {
     const queryBuilder = this.createQueryBuilder();
-    
+
     if (options?.where) {
       queryBuilder.where(options.where);
     }
-    
+
     if (options?.relations) {
       queryBuilder.leftJoinAndSelect(`${queryBuilder.alias}.tenant`, 'tenant');
     }
-    
+
     return await queryBuilder.getOne();
   }
 
@@ -79,11 +84,11 @@ export class TenantAwareRepository<T extends Object> {
    */
   async count(options?: any): Promise<number> {
     const queryBuilder = this.createQueryBuilder();
-    
+
     if (options?.where) {
       queryBuilder.where(options.where);
     }
-    
+
     return await queryBuilder.getCount();
   }
 
@@ -173,14 +178,18 @@ export class TenantAwareRepository<T extends Object> {
 
     const entityObj = entity as any;
     if (entityObj.tenantId && entityObj.tenantId !== tenantId) {
-      throw new Error(`Access denied: Entity does not belong to current tenant: ${tenantId}`);
+      throw new Error(
+        `Access denied: Entity does not belong to current tenant: ${tenantId}`,
+      );
     }
 
     // If the entity has an ID but no tenantId, verify access through the database
     if (entityObj.id && !entityObj.tenantId) {
       const exists = await this.findOne({ where: { id: entityObj.id } });
       if (!exists) {
-        throw new Error(`Access denied: Entity not found in current tenant context`);
+        throw new Error(
+          `Access denied: Entity not found in current tenant context`,
+        );
       }
     }
   }
@@ -189,10 +198,14 @@ export class TenantAwareRepository<T extends Object> {
 /**
  * Helper function to create a tenant-aware repository
  */
-export function createTenantAwareRepository<T extends Object>(
+export function createTenantAwareRepository<T extends object>(
   baseRepository: Repository<T>,
   tenantIsolationService: TenantIsolationService,
   entityName: string,
 ): TenantAwareRepository<T> {
-  return new TenantAwareRepository(baseRepository, tenantIsolationService, entityName);
+  return new TenantAwareRepository(
+    baseRepository,
+    tenantIsolationService,
+    entityName,
+  );
 }

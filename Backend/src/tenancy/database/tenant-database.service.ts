@@ -12,14 +12,19 @@ export class TenantDatabaseService {
    */
   async createTenantSchema(tenantId: string): Promise<void> {
     const schemaName = `tenant_${tenantId.replace(/-/g, '_')}`;
-    
+
     try {
       // Create the schema
-      await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
-      
+      await this.dataSource.query(
+        `CREATE SCHEMA IF NOT EXISTS "${schemaName}"`,
+      );
+
       this.logger.log(`Created schema for tenant ${tenantId}: ${schemaName}`);
     } catch (error) {
-      this.logger.error(`Failed to create schema for tenant ${tenantId}:`, error);
+      this.logger.error(
+        `Failed to create schema for tenant ${tenantId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -29,11 +34,13 @@ export class TenantDatabaseService {
    */
   async dropTenantSchema(tenantId: string): Promise<void> {
     const schemaName = `tenant_${tenantId.replace(/-/g, '_')}`;
-    
+
     try {
       // Drop the schema and all its contents
-      await this.dataSource.query(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
-      
+      await this.dataSource.query(
+        `DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`,
+      );
+
       this.logger.log(`Dropped schema for tenant ${tenantId}: ${schemaName}`);
     } catch (error) {
       this.logger.error(`Failed to drop schema for tenant ${tenantId}:`, error);
@@ -46,19 +53,26 @@ export class TenantDatabaseService {
    */
   async runTenantMigrations(tenantId: string): Promise<void> {
     const schemaName = `tenant_${tenantId.replace(/-/g, '_')}`;
-    
+
     try {
       // Set the search path to the tenant's schema
-      await this.dataSource.query(`SET search_path TO "${schemaName}", public;`);
-      
+      await this.dataSource.query(
+        `SET search_path TO "${schemaName}", public;`,
+      );
+
       // Here you would typically run tenant-specific migrations
       // For now, we'll just log that migrations would run
-      this.logger.log(`Would run migrations for tenant ${tenantId} in schema: ${schemaName}`);
-      
+      this.logger.log(
+        `Would run migrations for tenant ${tenantId} in schema: ${schemaName}`,
+      );
+
       // Reset search path
       await this.dataSource.query(`SET search_path TO public;`);
     } catch (error) {
-      this.logger.error(`Failed to run migrations for tenant ${tenantId}:`, error);
+      this.logger.error(
+        `Failed to run migrations for tenant ${tenantId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -68,7 +82,7 @@ export class TenantDatabaseService {
    */
   getTenantConnectionOptions(tenantId: string) {
     const schemaName = `tenant_${tenantId.replace(/-/g, '_')}`;
-    
+
     return {
       schema: schemaName,
       searchPath: `"${schemaName}", public`,
@@ -80,18 +94,24 @@ export class TenantDatabaseService {
    */
   async validateTenantSchema(tenantId: string): Promise<boolean> {
     const schemaName = `tenant_${tenantId.replace(/-/g, '_')}`;
-    
+
     try {
       // Check if schema exists
-      const result = await this.dataSource.query(`
+      const result = await this.dataSource.query(
+        `
         SELECT schema_name 
         FROM information_schema.schemata 
         WHERE schema_name = $1
-      `, [schemaName]);
-      
+      `,
+        [schemaName],
+      );
+
       return result.length > 0;
     } catch (error) {
-      this.logger.error(`Failed to validate schema for tenant ${tenantId}:`, error);
+      this.logger.error(
+        `Failed to validate schema for tenant ${tenantId}:`,
+        error,
+      );
       return false;
     }
   }
@@ -101,7 +121,7 @@ export class TenantDatabaseService {
    */
   async prepareTenantConnection(tenantId: string): Promise<void> {
     const schemaName = `tenant_${tenantId.replace(/-/g, '_')}`;
-    
+
     // Set the search path to prioritize the tenant's schema
     await this.dataSource.query(`SET search_path TO "${schemaName}", public;`);
   }

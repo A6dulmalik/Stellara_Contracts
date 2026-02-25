@@ -1,11 +1,15 @@
-import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { TenantService } from '../tenant.service';
 
 declare global {
   namespace Express {
     interface Request {
-      tenant?: any;  // We'll define a proper type later
+      tenant?: any; // We'll define a proper type later
       tenantId?: string;
     }
   }
@@ -30,14 +34,15 @@ export class TenantContextMiddleware implements NestMiddleware {
 
     // 2. Try to get tenant from header
     if (!tenantIdentifier && req.headers['x-tenant-id']) {
-      tenantIdentifier = Array.isArray(req.headers['x-tenant-id']) 
-        ? req.headers['x-tenant-id'][0] 
+      tenantIdentifier = Array.isArray(req.headers['x-tenant-id'])
+        ? req.headers['x-tenant-id'][0]
         : req.headers['x-tenant-id'];
     }
 
     // 3. Try to get tenant from query parameter (for testing purposes)
     if (!tenantIdentifier && req.query.tenantId) {
-      tenantIdentifier = typeof req.query.tenantId === 'string' ? req.query.tenantId : undefined;
+      tenantIdentifier =
+        typeof req.query.tenantId === 'string' ? req.query.tenantId : undefined;
     }
 
     // 4. Try to get tenant from authorization header (if using tenant-specific tokens)
@@ -49,11 +54,11 @@ export class TenantContextMiddleware implements NestMiddleware {
     if (tenantIdentifier) {
       // Find tenant by subdomain, custom domain, or ID
       let tenant = await this.tenantService.findBySubdomain(tenantIdentifier);
-      
+
       if (!tenant) {
         tenant = await this.tenantService.findByCustomDomain(tenantIdentifier);
       }
-      
+
       if (!tenant) {
         // If no tenant found, you might want to allow it to proceed with a default tenant
         // or throw an error depending on your requirements
@@ -68,7 +73,7 @@ export class TenantContextMiddleware implements NestMiddleware {
 
     // If no tenant identifier is found, continue without tenant context
     // This allows for public endpoints or default tenant behavior
-    
+
     next();
   }
 }

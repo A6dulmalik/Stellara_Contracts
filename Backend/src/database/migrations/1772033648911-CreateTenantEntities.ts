@@ -1,10 +1,9 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateTenantEntities1772033648911 implements MigrationInterface {
-
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Create tenants table
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Create tenants table
+    await queryRunner.query(`
             CREATE TABLE "tenants" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" character varying NOT NULL,
@@ -26,8 +25,8 @@ export class CreateTenantEntities1772033648911 implements MigrationInterface {
             )
         `);
 
-        // Create tenant_configs table
-        await queryRunner.query(`
+    // Create tenant_configs table
+    await queryRunner.query(`
             CREATE TABLE "tenant_configs" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "key" character varying NOT NULL,
@@ -42,8 +41,8 @@ export class CreateTenantEntities1772033648911 implements MigrationInterface {
             )
         `);
 
-        // Create tenant_usages table
-        await queryRunner.query(`
+    // Create tenant_usages table
+    await queryRunner.query(`
             CREATE TABLE "tenant_usages" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "metric" character varying NOT NULL,
@@ -59,8 +58,8 @@ export class CreateTenantEntities1772033648911 implements MigrationInterface {
             )
         `);
 
-        // Create tenant_invitations table
-        await queryRunner.query(`
+    // Create tenant_invitations table
+    await queryRunner.query(`
             CREATE TABLE "tenant_invitations" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "email" character varying NOT NULL,
@@ -79,47 +78,68 @@ export class CreateTenantEntities1772033648911 implements MigrationInterface {
             )
         `);
 
-        // Add tenant_id column to users table
-        await queryRunner.query(`
+    // Add tenant_id column to users table
+    await queryRunner.query(`
             ALTER TABLE "users" ADD COLUMN "tenant_id" uuid,
             ADD CONSTRAINT "FK_users_tenant_id" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE
         `);
 
-        // Create indexes for better performance
-        await queryRunner.query(`CREATE INDEX "IDX_tenants_status" ON "tenants" ("status")`);
-        await queryRunner.query(`CREATE INDEX "IDX_tenant_configs_key" ON "tenant_configs" ("key")`);
-        await queryRunner.query(`CREATE INDEX "IDX_tenant_usages_metric" ON "tenant_usages" ("metric")`);
-        await queryRunner.query(`CREATE INDEX "IDX_tenant_usages_tenant_id" ON "tenant_usages" ("tenant_id")`);
-        await queryRunner.query(`CREATE INDEX "IDX_tenant_invitations_status" ON "tenant_invitations" ("status")`);
-        await queryRunner.query(`CREATE INDEX "IDX_tenant_invitations_tenant_id" ON "tenant_invitations" ("tenant_id")`);
-        await queryRunner.query(`CREATE INDEX "IDX_users_tenant_id" ON "users" ("tenant_id")`);
-    }
+    // Create indexes for better performance
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tenants_status" ON "tenants" ("status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tenant_configs_key" ON "tenant_configs" ("key")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tenant_usages_metric" ON "tenant_usages" ("metric")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tenant_usages_tenant_id" ON "tenant_usages" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tenant_invitations_status" ON "tenant_invitations" ("status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tenant_invitations_tenant_id" ON "tenant_invitations" ("tenant_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_users_tenant_id" ON "users" ("tenant_id")`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Drop indexes
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_users_tenant_id"`);
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tenant_invitations_tenant_id"`);
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tenant_invitations_status"`);
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tenant_usages_tenant_id"`);
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tenant_usages_metric"`);
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tenant_configs_key"`);
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tenants_status"`);
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Drop indexes
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_users_tenant_id"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_tenant_invitations_tenant_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_tenant_invitations_status"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_tenant_usages_tenant_id"`,
+    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tenant_usages_metric"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tenant_configs_key"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tenants_status"`);
 
-        // Remove tenant_id column from users table
-        await queryRunner.query(`ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "FK_users_tenant_id"`);
-        await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "tenant_id"`);
+    // Remove tenant_id column from users table
+    await queryRunner.query(
+      `ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "FK_users_tenant_id"`,
+    );
+    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "tenant_id"`);
 
-        // Drop tenant_invitations table
-        await queryRunner.query(`DROP TABLE "tenant_invitations"`);
+    // Drop tenant_invitations table
+    await queryRunner.query(`DROP TABLE "tenant_invitations"`);
 
-        // Drop tenant_usages table
-        await queryRunner.query(`DROP TABLE "tenant_usages"`);
+    // Drop tenant_usages table
+    await queryRunner.query(`DROP TABLE "tenant_usages"`);
 
-        // Drop tenant_configs table
-        await queryRunner.query(`DROP TABLE "tenant_configs"`);
+    // Drop tenant_configs table
+    await queryRunner.query(`DROP TABLE "tenant_configs"`);
 
-        // Drop tenants table
-        await queryRunner.query(`DROP TABLE "tenants"`);
-    }
-
+    // Drop tenants table
+    await queryRunner.query(`DROP TABLE "tenants"`);
+  }
 }

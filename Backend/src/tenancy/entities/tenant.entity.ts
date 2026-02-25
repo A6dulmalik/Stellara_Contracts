@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
 import { TenantConfig } from './tenant-config.entity';
 import { TenantUsage } from './tenant-usage.entity';
 import { TenantInvitation } from './tenant-invitation.entity';
@@ -24,7 +31,7 @@ export class Tenant {
   @Column({
     type: 'enum',
     enum: ['active', 'inactive', 'suspended', 'trial'],
-    default: 'trial'
+    default: 'trial',
   })
   status: string;
 
@@ -50,15 +57,18 @@ export class Tenant {
   updatedAt: Date;
 
   // Relations
-  @OneToMany(() => TenantConfig, tenantConfig => tenantConfig.tenant)
+  @OneToMany(() => TenantConfig, (tenantConfig) => tenantConfig.tenant)
   configs: TenantConfig[];
 
-  @OneToMany(() => TenantUsage, tenantUsage => tenantUsage.tenant)
+  @OneToMany(() => TenantUsage, (tenantUsage) => tenantUsage.tenant)
   usages: TenantUsage[];
 
-  @OneToMany(() => TenantInvitation, tenantInvitation => tenantInvitation.tenant)
+  @OneToMany(
+    () => TenantInvitation,
+    (tenantInvitation) => tenantInvitation.tenant,
+  )
   invitations: TenantInvitation[];
 
-  @OneToMany(() => User, user => user.tenantId)
+  @OneToMany(() => User, (user) => user.tenantId)
   users: User[];
 }

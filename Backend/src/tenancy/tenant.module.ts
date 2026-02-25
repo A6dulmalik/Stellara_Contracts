@@ -20,13 +20,7 @@ import { User } from '../auth/entities/user.entity';
     ]),
   ],
   controllers: [TenantController],
-  providers: [
-    TenantService,
-    TenantIsolationService,
-  ],
-  exports: [
-    TenantService,
-    TenantIsolationService,
-  ], // Export services for other modules to use
+  providers: [TenantService, TenantIsolationService],
+  exports: [TenantService, TenantIsolationService], // Export services for other modules to use
 })
 export class TenantModule {}

@@ -13,10 +13,28 @@ export class TenantInvitation {
   tenantId: string;
 }
 
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Query,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
 import { TenantService } from './tenant.service';
 import { Tenant } from './entities/tenant.entity';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 
 @ApiTags('tenants')
 @Controller('tenants')
@@ -24,16 +42,26 @@ export class TenantController {
   constructor(private readonly tenantService: TenantService) {}
 
   @ApiOperation({ summary: 'Create a new tenant' })
-  @ApiResponse({ status: 201, description: 'Tenant created successfully', type: Tenant })
-  @ApiResponse({ status: 409, description: 'Tenant with subdomain already exists' })
+  @ApiResponse({
+    status: 201,
+    description: 'Tenant created successfully',
+    type: Tenant,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Tenant with subdomain already exists',
+  })
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createTenantDto: {
-    name: string;
-    subdomain: string;
-    customDomain?: string;
-    description?: string;
-  }): Promise<Tenant> {
+  async create(
+    @Body()
+    createTenantDto: {
+      name: string;
+      subdomain: string;
+      customDomain?: string;
+      description?: string;
+    },
+  ): Promise<Tenant> {
     return await this.tenantService.createTenant(createTenantDto);
   }
 
@@ -58,7 +86,11 @@ export class TenantController {
   }
 
   @ApiOperation({ summary: 'Update tenant' })
-  @ApiResponse({ status: 200, description: 'Tenant updated successfully', type: Tenant })
+  @ApiResponse({
+    status: 200,
+    description: 'Tenant updated successfully',
+    type: Tenant,
+  })
   @ApiResponse({ status: 404, description: 'Tenant not found' })
   @ApiParam({ name: 'id', description: 'Tenant ID' })
   @Put(':id')
@@ -79,7 +111,11 @@ export class TenantController {
   }
 
   @ApiOperation({ summary: 'Activate tenant' })
-  @ApiResponse({ status: 200, description: 'Tenant activated successfully', type: Tenant })
+  @ApiResponse({
+    status: 200,
+    description: 'Tenant activated successfully',
+    type: Tenant,
+  })
   @ApiResponse({ status: 404, description: 'Tenant not found' })
   @ApiParam({ name: 'id', description: 'Tenant ID' })
   @Post(':id/activate')
@@ -88,7 +124,11 @@ export class TenantController {
   }
 
   @ApiOperation({ summary: 'Deactivate tenant' })
-  @ApiResponse({ status: 200, description: 'Tenant deactivated successfully', type: Tenant })
+  @ApiResponse({
+    status: 200,
+    description: 'Tenant deactivated successfully',
+    type: Tenant,
+  })
   @ApiResponse({ status: 404, description: 'Tenant not found' })
   @ApiParam({ name: 'id', description: 'Tenant ID' })
   @Post(':id/deactivate')
@@ -102,7 +142,10 @@ export class TenantController {
   @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @ApiParam({ name: 'key', description: 'Configuration key' })
   @Get(':tenantId/config/:key')
-  async getConfig(@Param('tenantId') tenantId: string, @Param('key') key: string): Promise<any> {
+  async getConfig(
+    @Param('tenantId') tenantId: string,
+    @Param('key') key: string,
+  ): Promise<any> {
     return await this.tenantService.getConfig(tenantId, key);
   }
 
@@ -110,7 +153,9 @@ export class TenantController {
   @ApiResponse({ status: 200, description: 'Configuration set successfully' })
   @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @ApiParam({ name: 'key', description: 'Configuration key' })
-  @ApiBody({ schema: { type: 'object', properties: { value: { type: 'string' } } } })
+  @ApiBody({
+    schema: { type: 'object', properties: { value: { type: 'string' } } },
+  })
   @Post(':tenantId/config/:key')
   async setConfig(
     @Param('tenantId') tenantId: string,
@@ -124,7 +169,9 @@ export class TenantController {
   @ApiResponse({ status: 200, description: 'All configurations for tenant' })
   @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
   @Get(':tenantId/config')
-  async getAllConfigs(@Param('tenantId') tenantId: string): Promise<Record<string, any>> {
+  async getAllConfigs(
+    @Param('tenantId') tenantId: string,
+  ): Promise<Record<string, any>> {
     return await this.tenantService.getAllConfigs(tenantId);
   }
 
@@ -145,15 +192,29 @@ export class TenantController {
   }
 
   @ApiOperation({ summary: 'Create tenant invitation' })
-  @ApiResponse({ status: 201, description: 'Invitation created successfully', type: TenantInvitation })
+  @ApiResponse({
+    status: 201,
+    description: 'Invitation created successfully',
+    type: TenantInvitation,
+  })
   @ApiParam({ name: 'tenantId', description: 'Tenant ID' })
-  @ApiBody({ schema: { type: 'object', properties: { email: { type: 'string' }, invitedBy: { type: 'string' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { email: { type: 'string' }, invitedBy: { type: 'string' } },
+    },
+  })
   @Post(':tenantId/invitations')
   async createInvitation(
     @Param('tenantId') tenantId: string,
     @Body() body: { email: string; invitedBy: string; expiresAt?: string },
   ): Promise<TenantInvitation> {
     const expiresAt = body.expiresAt ? new Date(body.expiresAt) : undefined;
-    return await this.tenantService.createInvitation(tenantId, body.email, body.invitedBy, expiresAt);
+    return await this.tenantService.createInvitation(
+      tenantId,
+      body.email,
+      body.invitedBy,
+      expiresAt,
+    );
   }
 }
