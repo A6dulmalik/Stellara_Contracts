@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { WalletBinding } from './wallet-binding.entity';
 import { RefreshToken } from './refresh-token.entity';
 import { ApiToken } from './api-token.entity';
@@ -22,6 +22,9 @@ export class User {
 
   @Column({ default: true })
   isActive: boolean;
+
+  @Column({ name: 'tenant_id', nullable: true })
+  tenantId?: string;
 
   @OneToMany(() => WalletBinding, (binding) => binding.user)
   wallets: WalletBinding[];

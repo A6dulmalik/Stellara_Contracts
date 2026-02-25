@@ -4,6 +4,7 @@ import { RedisIoAdapter } from './websocket/redis-io.adapter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { ThrottleGuard } from './throttle/throttle.guard';
+import { TenantContextMiddleware } from './tenancy/middleware/tenant-context.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -35,6 +36,9 @@ async function bootstrap() {
   app.useWebSocketAdapter(redisIoAdapter);
   app.useGlobalGuards(app.get(ThrottleGuard));
 
+  // Register tenant context middleware
+  const tenantContextMiddleware = app.get(TenantContextMiddleware);
+  app.use(tenantContextMiddleware.use.bind(tenantContextMiddleware));
 
   await app.listen(process.env.PORT ?? 3000);
 }

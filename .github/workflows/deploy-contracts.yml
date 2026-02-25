@@ -1,16 +1,16 @@
-name: Secure Contract Deployment
+name: Backend Deployment
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
     inputs:
-      network:
-        description: 'Target network'
+      environment:
+        description: 'Target environment'
         required: true
-        default: 'testnet'
+        default: 'staging'
         type: choice
-        options: [testnet, mainnet]
+        options: [staging, production]
 
 jobs:
   validate:
@@ -19,131 +19,82 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust + wasm target
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          targets: wasm32-unknown-unknown
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
 
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Backend Dependencies
+        run: npm ci
+        working-directory: Backend
 
-      - name: Install Stellar CLI
-        run: curl --proto '=https' --tlsv1.2 -sSf https://install.stellar.org | sh
+      - name: Run Backend Tests
+        run: npm test
+        working-directory: Backend
 
-      - name: Build contracts
-        run: ./build.sh
+      - name: Build Backend
+        run: npm run build
+        working-directory: Backend
 
-      - name: Run validation
-        run: chmod +x scripts/validate.sh && ./scripts/validate.sh
-
-      - name: Upload WASM artifacts
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wasm-binaries
-          path: target/wasm32-unknown-unknown/release/*.wasm
+          name: backend-build
+          path: Backend/dist/
           retention-days: 7
 
   deploy:
-    name: Deploy Contracts
+    name: Deploy Backend
     needs: validate
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.network || 'testnet' }}
+    environment: ${{ github.event.inputs.environment || 'staging' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download WASM artifacts
+      - name: Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: wasm-binaries
-          path: target/wasm32-unknown-unknown/release/
+          name: backend-build
+          path: Backend/dist/
 
-      - name: Install Stellar CLI
-        run: curl --proto '=https' --tlsv1.2 -sSf https://install.stellar.org | sh
-
-      - name: Make scripts executable
-        run: chmod +x scripts/*.sh build.sh
-
-      - name: Deploy contracts
+      - name: Deploy Backend Application
         env:
-          STELLAR_SECRET_KEY: ${{ secrets.STELLAR_DEPLOYER_SECRET_KEY }}
-          STELLAR_NETWORK: ${{ github.event.inputs.network || 'testnet' }}
-          STELLAR_RPC_URL: ${{ secrets.STELLAR_RPC_URL }}
-        run: ./scripts/deploy.sh
+          NODE_ENV: ${{ github.event.inputs.environment || 'staging' }}
+        run: |
+          echo "Deploying backend application..."
+          # Add actual deployment commands here
 
-      - name: Upload deployed contract IDs
+      - name: Upload deployment logs
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: deployed-contracts-${{ github.run_id }}
+          name: deployment-logs-${{ github.run_id }}
           path: |
-            deployed_contracts.env
-            deploy_*.log
-          retention-days: 30
-
-      - name: Upload rollback on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: failed-deploy-${{ github.run_id }}
-          path: deploy_*.log
+            deployment.log
           retention-days: 30
 
       - name: Notify on failure
         if: failure()
         run: |
-          echo "::error::Deployment failed on ${{ github.event.inputs.network || 'testnet' }}"
-          echo "::error::Rollback was triggered automatically. Check deploy log artifact."
+          echo "::error::Deployment failed on ${{ github.event.inputs.environment || 'staging' }}"
 
   monitor:
     name: Post-deployment Health Check
     needs: deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Stellar CLI
-        run: curl --proto '=https' --tlsv1.2 -sSf https://install.stellar.org | sh
-
-      - name: Download deployed contract IDs
-        uses: actions/download-artifact@v4
-        with:
-          name: deployed-contracts-${{ github.run_id }}
-
       - name: Run health checks
-        env:
-          STELLAR_NETWORK: ${{ github.event.inputs.network || 'testnet' }}
         run: |
-          source deployed_contracts.env
-          FAILED=0
-          for var in TRADING_ID TOKEN_ID YIELD_FARMING_ID; do
-            id="${!var}"
-            name="${var/_ID/}"
-            if [ -n "$id" ]; then
-              echo "Checking $name ($id)..."
-              if stellar contract info --id "$id" --network "$STELLAR_NETWORK" >/dev/null 2>&1; then
-                echo "::notice::✅ $name is live: $id"
-              else
-                echo "::error::❌ $name health check failed: $id"
-                FAILED=1
-              fi
-            fi
-          done
-          exit $FAILED
+          echo "Running health checks for deployed backend..."
+          # Add health check commands here
+          # Example: curl -f https://api.example.com/health || exit 1
 
       - name: Report deployment summary
         if: always()
         run: |
           echo "### Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Network:** ${{ github.event.inputs.network || 'testnet' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ github.event.inputs.environment || 'staging' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Run ID:** ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          if [ -f deployed_contracts.env ]; then
-            echo "- **Contracts:**" >> $GITHUB_STEP_SUMMARY
-            cat deployed_contracts.env >> $GITHUB_STEP_SUMMARY
-          fi

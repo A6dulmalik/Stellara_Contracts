@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as winston from 'winston';
 import { LogContext } from '../types/trace-context.interface';
-import * as Sentry from '@sentry/node';
+
 
 /**
  * Structured logging service using Winston
@@ -14,7 +14,6 @@ export class LoggingService {
 
   constructor() {
     this.initializeLogger();
-    this.initializeSentry();
   }
 
   /**
@@ -69,18 +68,6 @@ export class LoggingService {
     });
   }
 
-  /**
-   * (Optional) Initialize Sentry for centralized error tracking
-   */
-  private initializeSentry() {
-    if (process.env.SENTRY_DSN) {
-      Sentry.init({
-        dsn: process.env.SENTRY_DSN,
-        environment: process.env.NODE_ENV,
-        tracesSampleRate: 1.0,
-      });
-    }
-  }
 
   /**
    * Set request context for correlation across logs
@@ -138,9 +125,6 @@ export class LoggingService {
     if (category) meta['category'] = category;
     if (severity) meta['severity'] = severity;
     this.logger.error(message, meta);
-    if (severity === 'critical' && process.env.SENTRY_DSN) {
-      Sentry.captureException(error || message, { extra: meta });
-    }
   }
 
   /**
