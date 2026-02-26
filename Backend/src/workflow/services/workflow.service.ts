@@ -4,7 +4,7 @@ import { In, LessThan, Repository } from 'typeorm';
 import { Workflow } from '../entities/workflow.entity';
 import { WorkflowStep } from '../entities/workflow-step.entity';
 import { WorkflowState } from '../types/workflow-state.enum';
-import { StepState } from '../types/step-state.enum';
+// import { StepState } from '../types/step-state.enum'; // TODO: Remove when used
 import { WorkflowExecutionService } from './workflow-execution.service';
 import { CompensationService } from './compensation.service';
 import { RecoveryService } from './recovery.service';
@@ -28,7 +28,7 @@ export class WorkflowService implements OnModuleInit {
     private readonly monitoringService: MonitoringService,
   ) {}
 
-  async onModuleInit() {
+  onModuleInit() {
     // Register built-in workflow definitions
     this.workflowExecutionService.registerWorkflowDefinition(
       contractDeploymentWorkflow,

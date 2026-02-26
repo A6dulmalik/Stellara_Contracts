@@ -1,4 +1,4 @@
-import { WorkflowDefinition, StepDefinition, WorkflowContext } from '../types';
+import { WorkflowDefinition, WorkflowContext } from '../types';
 import { WorkflowType } from '../types/workflow-type.enum';
 
 export const tradeExecutionWorkflow: WorkflowDefinition = {
@@ -17,7 +17,11 @@ export const tradeExecutionWorkflow: WorkflowDefinition = {
           `Validating trade parameters for workflow: ${context.workflowId}`,
         );
 
-        const { tokenA, tokenB, amount, slippage } = input;
+        // Extract trade parameters
+        const tokenA = input.tokenA;
+        const tokenB = input.tokenB;
+        const amount = input.amount;
+        const slippage = input.slippage || 0.01; // Default 1% slippage
 
         if (!tokenA || !tokenB || !amount) {
           throw new Error('Missing required trade parameters');
@@ -84,7 +88,11 @@ export const tradeExecutionWorkflow: WorkflowDefinition = {
       execute: async (input: any, context: WorkflowContext) => {
         console.log(`Executing trade for workflow: ${context.workflowId}`);
 
-        const { tokenA, tokenB, amount, slippage } = input;
+        // Extract trade parameters
+        const tokenA = input.tokenA;
+        const tokenB = input.tokenB;
+        const amount = input.amount;
+        const slippage = input.slippage || 0.01; // Default 1% slippage
 
         // Simulate trade execution
         await new Promise((resolve) => setTimeout(resolve, 2000));

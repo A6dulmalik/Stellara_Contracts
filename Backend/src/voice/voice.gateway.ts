@@ -13,6 +13,7 @@ import { VoiceSessionService } from './services/voice-session.service';
 import { StreamingResponseService } from './services/streaming-response.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { VoiceMessageDto } from './dto/voice-message.dto';
+import { VoiceSession } from './entities/voice-session.entity';
 import { SessionActionDto } from './dto/session-action.dto';
 import { ConversationState } from './types/conversation-state.enum';
 
@@ -33,14 +34,16 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   async handleConnection(client: Socket) {
-    const userId = client.handshake.auth.userId;
-    const sessionId = client.handshake.auth.sessionId;
+    const userId = client.handshake.auth.userId as string;
+    const sessionId = client.handshake.auth.sessionId as string;
 
     this.logger.log(`Voice client connected: ${client.id}, userId: ${userId}`);
 
     if (userId && sessionId) {
       // Resume existing session
-      const session = await this.voiceSessionService.getSession(sessionId);
+      const session = (await this.voiceSessionService.getSession(
+        sessionId,
+      )) as VoiceSession;
       if (session && session.userId === userId) {
         await this.voiceSessionService.updateSessionSocket(
           sessionId,
@@ -63,8 +66,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async handleDisconnect(client: Socket) {
-    const userId = client.handshake.auth.userId;
-    const sessionId = client.handshake.auth.sessionId;
+    const userId = client.handshake.auth.userId as string;
+    const sessionId = client.handshake.auth.sessionId as string;
 
     this.logger.log(
       `Voice client disconnected: ${client.id}, userId: ${userId}`,

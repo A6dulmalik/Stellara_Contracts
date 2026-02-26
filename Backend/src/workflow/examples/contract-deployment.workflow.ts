@@ -1,4 +1,4 @@
-import { WorkflowDefinition, StepDefinition, WorkflowContext } from '../types';
+import { WorkflowDefinition, WorkflowContext } from '../types';
 import { WorkflowType } from '../types/workflow-type.enum';
 
 export const contractDeploymentWorkflow: WorkflowDefinition = {
@@ -48,7 +48,9 @@ export const contractDeploymentWorkflow: WorkflowDefinition = {
       execute: async (input: any, context: WorkflowContext) => {
         console.log(`Deploying contract for workflow: ${context.workflowId}`);
 
-        const { contractCode, contractName } = input;
+        // Extract contract data from input
+        const contractCode = input.contractCode;
+        const contractName = input.contractName;
         const validationOutput = context.metadata?.validate_contract_code;
 
         if (!validationOutput?.isValid) {

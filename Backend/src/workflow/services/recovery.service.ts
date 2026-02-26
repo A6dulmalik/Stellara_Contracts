@@ -241,7 +241,7 @@ export class RecoveryService implements OnModuleInit {
     // For now, we'll just log them
     for (const workflow of expiredWorkflows) {
       this.logger.debug(
-        `Expired workflow: ${workflow.id} (created: ${workflow.createdAt})`,
+        `Expired workflow: ${workflow.id} (created: ${workflow.createdAt.toISOString()})`,
       );
     }
   }

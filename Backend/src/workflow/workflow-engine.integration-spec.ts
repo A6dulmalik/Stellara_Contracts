@@ -85,7 +85,7 @@ describe('Workflow Engine Integration', () => {
         'registerWorkflowDefinition',
       );
 
-      await workflowService.onModuleInit();
+      workflowService.onModuleInit();
 
       expect(spy).toHaveBeenCalledTimes(3); // contract_deployment, trade_execution, ai_job_chain
     });
