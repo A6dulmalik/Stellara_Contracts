@@ -20,7 +20,7 @@ pub struct UpgradeProposal {
 
 /// Status of an upgrade proposal
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum ProposalStatus {
     Pending = 0,
@@ -32,7 +32,7 @@ pub enum ProposalStatus {
 
 /// Governance role
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum GovernanceRole {
     Admin = 0,        // Can propose upgrades and cancel
