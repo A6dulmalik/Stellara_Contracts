@@ -1,8 +1,4 @@
-import {
-  Controller,
-  Get,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { SkipRateLimit } from '../common/decorators/skip-rate-limit.decorator';
 import { ApplicationStateService } from './application-state.service';
 
@@ -16,6 +12,11 @@ export class HealthController {
     return this.appState.getHealthSnapshot();
   }
 
+  @Get('health/deployment')
+  getDeploymentHealth(): any {
+    return this.appState.getHealthSnapshot().deployment;
+  }
+
   @Get('health/live')
   getLiveness(): any {
     return this.appState.getLivenessSnapshot();
@@ -24,9 +25,7 @@ export class HealthController {
   @Get('health/ready')
   getReadiness(): any {
     if (!this.appState.isReady()) {
-      throw new ServiceUnavailableException(
-        this.appState.getReadinessSnapshot(),
-      );
+      throw new ServiceUnavailableException(this.appState.getReadinessSnapshot());
     }
 
     return this.appState.getReadinessSnapshot();

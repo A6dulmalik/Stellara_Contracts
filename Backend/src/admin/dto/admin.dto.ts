@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsArray, IsEnum, IsNumber, IsBoolean, IsEmail } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsEnum,
+  IsNumber,
+  IsBoolean,
+  IsEmail,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -110,6 +118,9 @@ export class SystemMetricsDto {
 
   @ApiProperty()
   cacheHitRate: number;
+
+  @ApiProperty()
+  cacheEvictionRate: number;
 }
 
 export class TenantUsageDto {

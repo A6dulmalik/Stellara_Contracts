@@ -1,20 +1,50 @@
-import {
-  Injectable,
-  ConflictException,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { NotificationService } from '../notification/services/notification.service';
+import { AdvancedCacheService } from '../cache/advanced-cache.service';
+import { EventBusService } from '../messaging/rabbitmq/event-bus.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantSettingsDto } from './dto/update-tenant-settings.dto';
-import { TenantPlan, NotificationType } from '@prisma/client';
+import { ApiOveragePolicy, TenantPlan, NotificationType } from '@prisma/client';
 
-const PLAN_DEFAULTS: Record<TenantPlan, { maxUsers: number; maxProjects: number }> = {
-  FREE:         { maxUsers: 10,  maxProjects: 5   },
-  STARTER:      { maxUsers: 50,  maxProjects: 20  },
-  PROFESSIONAL: { maxUsers: 200, maxProjects: 100 },
-  ENTERPRISE:   { maxUsers: 500, maxProjects: 500 },
+const PLAN_DEFAULTS: Record<
+  TenantPlan,
+  {
+    maxUsers: number;
+    maxProjects: number;
+    apiCallsPerMonthLimit: number;
+    storageGbLimit: number;
+    apiOveragePolicy: ApiOveragePolicy;
+  }
+> = {
+  FREE: {
+    maxUsers: 10,
+    maxProjects: 5,
+    apiCallsPerMonthLimit: 100000,
+    storageGbLimit: 100,
+    apiOveragePolicy: 'HARD_STOP',
+  },
+  STARTER: {
+    maxUsers: 50,
+    maxProjects: 20,
+    apiCallsPerMonthLimit: 500000,
+    storageGbLimit: 500,
+    apiOveragePolicy: 'HARD_STOP',
+  },
+  PROFESSIONAL: {
+    maxUsers: 200,
+    maxProjects: 100,
+    apiCallsPerMonthLimit: 2000000,
+    storageGbLimit: 2000,
+    apiOveragePolicy: 'HARD_STOP',
+  },
+  ENTERPRISE: {
+    maxUsers: 500,
+    maxProjects: 500,
+    apiCallsPerMonthLimit: 10000000,
+    storageGbLimit: 10000,
+    apiOveragePolicy: 'BILL_OVERAGE',
+  },
 };
 
 @Injectable()
@@ -24,6 +54,8 @@ export class TenantService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
+    private readonly cache: AdvancedCacheService,
+    private readonly eventBus: EventBusService,
   ) {}
 
   async provision(dto: CreateTenantDto, actorId?: string) {
@@ -36,9 +68,7 @@ export class TenantService {
       where: { OR: [{ name: dto.name }, { slug }] },
     });
     if (existing) {
-      throw new ConflictException(
-        `A tenant with name "${dto.name}" already exists`,
-      );
+      throw new ConflictException(`A tenant with name "${dto.name}" already exists`);
     }
 
     const existingAdmin = await this.prisma.user.findUnique({
@@ -64,8 +94,12 @@ export class TenantService {
       await tx.tenantSettings.create({
         data: {
           tenantId: tenant.id,
-          maxUsers:            dto.settings?.maxUsers            ?? planDefaults.maxUsers,
-          maxProjects:         dto.settings?.maxProjects         ?? planDefaults.maxProjects,
+          maxUsers: dto.settings?.maxUsers ?? planDefaults.maxUsers,
+          maxProjects: dto.settings?.maxProjects ?? planDefaults.maxProjects,
+          apiCallsPerMonthLimit:
+            dto.settings?.apiCallsPerMonthLimit ?? planDefaults.apiCallsPerMonthLimit,
+          storageGbLimit: dto.settings?.storageGbLimit ?? planDefaults.storageGbLimit,
+          apiOveragePolicy: dto.settings?.apiOveragePolicy ?? planDefaults.apiOveragePolicy,
           allowPublicProjects: dto.settings?.allowPublicProjects ?? true,
           notificationsEnabled: dto.settings?.notificationsEnabled ?? true,
         },
@@ -74,17 +108,17 @@ export class TenantService {
       const adminUser = await tx.user.create({
         data: {
           walletAddress: dto.adminWalletAddress,
-          email:         dto.adminEmail,
-          roles:         ['TENANT_ADMIN'],
-          tenantId:      tenant.id,
+          email: dto.adminEmail,
+          roles: ['TENANT_ADMIN'],
+          tenantId: tenant.id,
         },
       });
 
       await tx.tenantAuditLog.create({
         data: {
           tenantId: tenant.id,
-          action:   'TENANT_PROVISIONED',
-          actorId:  actorId ?? null,
+          action: 'TENANT_PROVISIONED',
+          actorId: actorId ?? null,
           metadata: {
             plan,
             adminWalletAddress: dto.adminWalletAddress,
@@ -103,21 +137,35 @@ export class TenantService {
       );
     }
 
+    // Publish domain event for loose-coupled downstream processing.
+    this.eventBus
+      .publish('UserCreated', {
+        userId: adminUser.id,
+        tenantId: tenant.id,
+        walletAddress: adminUser.walletAddress,
+        roles: adminUser.roles,
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `Failed to publish UserCreated event for tenant ${tenant.id}: ${err.message}`,
+        ),
+      );
+
     this.logger.log(`Tenant provisioned: ${tenant.id} (${tenant.slug})`);
 
     return {
       tenant: {
-        id:        tenant.id,
-        name:      tenant.name,
-        slug:      tenant.slug,
-        plan:      tenant.plan,
-        status:    tenant.status,
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        plan: tenant.plan,
+        status: tenant.status,
         createdAt: tenant.createdAt,
       },
       adminUser: {
-        id:            adminUser.id,
+        id: adminUser.id,
         walletAddress: adminUser.walletAddress,
-        roles:         adminUser.roles,
+        roles: adminUser.roles,
       },
     };
   }
@@ -140,11 +188,28 @@ export class TenantService {
   }
 
   async getSettings(tenantId: string) {
-    const settings = await this.prisma.tenantSettings.findUnique({
-      where: { tenantId },
+    const cacheTag = `tenant-settings:${tenantId}`;
+    const cacheKey = `tenantSettings:${tenantId}`;
+
+    const toApiShape = (s: any) => ({
+      ...s,
+      // Normalize Date objects so JSON-cached values have stable shape.
+      createdAt: s.createdAt ? (s.createdAt.toISOString?.() ?? s.createdAt) : null,
+      updatedAt: s.updatedAt ? (s.updatedAt.toISOString?.() ?? s.updatedAt) : null,
     });
-    if (!settings) throw new NotFoundException(`Settings for tenant ${tenantId} not found`);
-    return settings;
+
+    return this.cache.getOrSet(
+      cacheKey,
+      async () => {
+        const settings = await this.prisma.tenantSettings.findUnique({
+          where: { tenantId },
+        });
+        if (!settings) throw new NotFoundException(`Settings for tenant ${tenantId} not found`);
+        return toApiShape(settings);
+      },
+      { ttlSeconds: 300 },
+      [cacheTag],
+    );
   }
 
   async updateSettings(tenantId: string, dto: UpdateTenantSettingsDto, actorId?: string) {
@@ -158,11 +223,14 @@ export class TenantService {
     await this.prisma.tenantAuditLog.create({
       data: {
         tenantId,
-        action:  'SETTINGS_UPDATED',
+        action: 'SETTINGS_UPDATED',
         actorId: actorId ?? null,
         metadata: dto as object,
       },
     });
+
+    // Tag-based invalidation so subsequent reads go to DB (cache-aside).
+    await this.cache.invalidateTags([`tenant-settings:${tenantId}`]);
 
     return updated;
   }
