@@ -5,19 +5,22 @@ import { PrismaService } from '../prisma.service';
 describe('NotificationController', () => {
   let controller: NotificationController;
 
-  const mockPrismaService = {
-    notificationSetting: {
-      upsert: jest.fn(),
-    },
-    user: {
-      update: jest.fn(),
-    },
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NotificationController],
-      providers: [{ provide: PrismaService, useValue: mockPrismaService }],
+      providers: [
+        {
+          provide: PrismaService,
+          useValue: {
+            notificationSetting: {
+              upsert: jest.fn(),
+            },
+            user: {
+              update: jest.fn(),
+            },
+          },
+        },
+      ],
     }).compile();
 
     controller = module.get<NotificationController>(NotificationController);

@@ -1,95 +1,71 @@
-import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { PrismaService } from '../prisma.service';
-import {
-  NotificationSettingsDto,
-  UpdateNotificationSettingsDto,
-  PushSubscriptionDto,
-  SubscribeResponseDto,
-} from './dto/notification.dto';
+import { PaginationDto, paginate } from '../common/dto/pagination.dto';
 
-@ApiTags('notifications')
-@ApiBearerAuth('JWT-auth')
 @Controller('notifications')
+@Throttle({ default: { limit: 10, ttl: 60000 } })
 export class NotificationController {
-  constructor(private readonly prisma: PrismaService) {}
+    constructor(private readonly prisma: PrismaService) { }
 
-  @Get('settings/:userId')
-  @ApiOperation({
-    summary: 'Get notification settings',
-    description: 'Retrieves notification preferences for a specific user',
-  })
-  @ApiParam({
-    name: 'userId',
-    description: 'User unique identifier',
-    example: 'cm3x1234567890',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Notification settings retrieved',
-    type: NotificationSettingsDto,
-  })
-  async getSettings(@Param('userId') userId: string): Promise<NotificationSettingsDto> {
-    return this.prisma.notificationSetting.upsert({
-      where: { userId },
-      update: {},
-      create: { userId },
-    });
-  }
+    @Get(':userId')
+    async listNotifications(
+        @Param('userId') userId: string,
+        @Query() query: PaginationDto,
+    ) {
+        const { page, limit } = query;
+        const skip = (page - 1) * limit;
+        const [notifications, total] = await this.prisma.$transaction([
+            this.prisma.notification.findMany({
+                where: { userId },
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+            }),
+            this.prisma.notification.count({ where: { userId } }),
+        ]);
+        return paginate(notifications, total, page, limit);
+    }
 
-  @Put('settings/:userId')
-  @ApiOperation({
-    summary: 'Update notification settings',
-    description: 'Updates notification preferences for a specific user',
-  })
-  @ApiParam({
-    name: 'userId',
-    description: 'User unique identifier',
-    example: 'cm3x1234567890',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Notification settings updated',
-    type: NotificationSettingsDto,
-  })
-  async updateSettings(
-    @Param('userId') userId: string,
-    @Body() settings: UpdateNotificationSettingsDto,
-  ): Promise<NotificationSettingsDto> {
-    return this.prisma.notificationSetting.upsert({
-      where: { userId },
-      update: settings,
-      create: {
-        userId,
-        ...settings,
-      },
-    });
-  }
+    @Get('settings/:userId')
+    async getSettings(@Param('userId') userId: string) {
+        return this.prisma.notificationSetting.upsert({
+            where: { userId },
+            update: {},
+            create: { userId },
+        });
+    }
 
-  @Post('subscribe/:userId')
-  @ApiOperation({
-    summary: 'Subscribe to push notifications',
-    description: 'Registers a push notification subscription for a user',
-  })
-  @ApiParam({
-    name: 'userId',
-    description: 'User unique identifier',
-    example: 'cm3x1234567890',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Push subscription registered',
-    type: SubscribeResponseDto,
-  })
-  async subscribeToPush(
-    @Param('userId') userId: string,
-    @Body() subscription: PushSubscriptionDto,
-  ): Promise<SubscribeResponseDto> {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { pushSubscription: subscription.subscription as Prisma.InputJsonValue },
-    });
-    return { success: true };
-  }
+    @Put('settings/:userId')
+    async updateSettings(
+        @Param('userId') userId: string,
+        @Body() settings: {
+            emailEnabled?: boolean;
+            pushEnabled?: boolean;
+            notifyContributions?: boolean;
+            notifyMilestones?: boolean;
+            notifyDeadlines?: boolean;
+        },
+    ) {
+        return this.prisma.notificationSetting.upsert({
+            where: { userId },
+            update: settings,
+            create: {
+                userId,
+                ...settings,
+            },
+        });
+    }
+
+    @Post('subscribe/:userId')
+    async subscribeToPush(
+        @Param('userId') userId: string,
+        @Body() subscription: any,
+    ) {
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { pushSubscription: subscription },
+        });
+        return { success: true };
+    }
 }

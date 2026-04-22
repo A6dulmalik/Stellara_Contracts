@@ -6,6 +6,7 @@ version = 4
 name = "academy-rewards"
 version = "0.0.0"
 dependencies = [
+ "shared",
  "soroban-sdk",
 ]
 
@@ -13,6 +14,7 @@ dependencies = [
 name = "academy-vesting"
 version = "0.1.0"
 dependencies = [
+ "shared",
  "soroban-sdk",
 ]
 
@@ -1210,6 +1212,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "stablecoin_reserve"
+version = "0.1.0"
+dependencies = [
+ "shared",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1243,7 +1253,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "stellara-staking-rewards"
+name = "stellara-synthetic-assets"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
@@ -1270,6 +1280,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "tcr"
+version = "0.1.0"
+dependencies = [
+ "shared",
+ "soroban-sdk",
 ]
 
 [[package]]

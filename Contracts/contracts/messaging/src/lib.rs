@@ -1,6 +1,9 @@
 #![no_std]
 
 use shared::acl::ACL;
+use shared::circuit_breaker::{
+    CircuitBreaker, CircuitBreakerConfig, CircuitBreakerState, PauseLevel,
+};
 use shared::governance::{GovernanceManager, GovernanceRole, UpgradeProposal};
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, Env, Map, String, Symbol, Vec,
@@ -41,6 +44,27 @@ pub struct RateLimitConfig {
     pub user_limit: u32,
     pub global_limit: u32,
     pub premium_user_limit: u32,
+}
+
+/// Event emitted when a message is sent
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct MessageSent {
+    pub message_id: u64,
+    pub sender: Address,
+    pub recipient: Address,
+    pub timestamp: u64,
+    pub payload_length: u32,
+}
+
+/// Event emitted when a message is marked as read
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct MessageRead {
+    pub message_id: u64,
+    pub recipient: Address,
+    pub sender: Address,
+    pub timestamp: u64,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -218,6 +242,7 @@ impl UpgradeableMessagingContract {
         admin: Address,
         approvers: Vec<Address>,
         executor: Address,
+        cb_config: CircuitBreakerConfig,
     ) -> Result<(), MessagingError> {
         let init_key = symbol_short!("init");
         if env.storage().persistent().has(&init_key) {
@@ -269,6 +294,9 @@ impl UpgradeableMessagingContract {
             .persistent()
             .set(&symbol_short!("ver"), &CONTRACT_VERSION);
 
+        // Initialize circuit breaker
+        CircuitBreaker::init(&env, cb_config);
+
         Ok(())
     }
 
@@ -282,6 +310,12 @@ impl UpgradeableMessagingContract {
         require_initialized(&env)?;
         check_and_consume_message_rate_limit(&env, &sender)?;
 
+        // Check pause state via CircuitBreaker
+        CircuitBreaker::require_not_paused(&env, symbol_short!("send_m"));
+
+        // Track activity (1 message = 1 unit volume)
+        CircuitBreaker::track_activity(&env, 1);
+
         if sender == recipient {
             return Err(MessagingError::InvalidRecipient);
         }
@@ -294,12 +328,14 @@ impl UpgradeableMessagingContract {
         let mut stats = get_stats_internal(&env);
         let message_id = stats.last_message_id + 1;
 
+        let current_timestamp = env.ledger().timestamp();
+
         let message = Message {
             id: message_id,
             sender: sender.clone(),
             recipient: recipient.clone(),
             payload,
-            timestamp: env.ledger().timestamp(),
+            timestamp: current_timestamp,
             read: false,
         };
 
@@ -322,7 +358,7 @@ impl UpgradeableMessagingContract {
 
         let mut unread_counts = get_unread_counts(&env);
         let unread_count = unread_counts.get(recipient.clone()).unwrap_or(0);
-        unread_counts.set(recipient, unread_count + 1);
+        unread_counts.set(recipient.clone(), unread_count + 1);
         env.storage()
             .persistent()
             .set(&symbol_short!("unread"), &unread_counts);
@@ -333,6 +369,18 @@ impl UpgradeableMessagingContract {
         env.storage()
             .persistent()
             .set(&symbol_short!("stats"), &stats);
+
+        // Emit MessageSent event
+        let message_sent_event = MessageSent {
+            message_id,
+            sender: sender.clone(),
+            recipient,
+            timestamp: current_timestamp,
+            payload_length: payload_len as u32,
+        };
+
+        env.events()
+            .publish((symbol_short!("msg_sent"),), message_sent_event);
 
         Ok(message_id)
     }
@@ -358,15 +406,17 @@ impl UpgradeableMessagingContract {
             return Err(MessagingError::AlreadyRead);
         }
 
+        let current_timestamp = env.ledger().timestamp();
+
         message.read = true;
-        messages.set(message_id, message);
+        messages.set(message_id, message.clone());
         env.storage()
             .persistent()
             .set(&symbol_short!("msgs"), &messages);
 
         let mut unread_counts = get_unread_counts(&env);
         let unread_count = unread_counts.get(recipient.clone()).unwrap_or(0);
-        unread_counts.set(recipient, unread_count.saturating_sub(1));
+        unread_counts.set(recipient.clone(), unread_count.saturating_sub(1));
         env.storage()
             .persistent()
             .set(&symbol_short!("unread"), &unread_counts);
@@ -376,6 +426,17 @@ impl UpgradeableMessagingContract {
         env.storage()
             .persistent()
             .set(&symbol_short!("stats"), &stats);
+
+        // Emit MessageRead event
+        let message_read_event = MessageRead {
+            message_id,
+            recipient,
+            sender: message.sender,
+            timestamp: current_timestamp,
+        };
+
+        env.events()
+            .publish((symbol_short!("msg_read"),), message_read_event);
 
         Ok(())
     }
@@ -425,6 +486,47 @@ impl UpgradeableMessagingContract {
         require_initialized(&env)?;
         let unread_counts = get_unread_counts(&env);
         Ok(unread_counts.get(user).unwrap_or(0))
+    }
+
+    pub fn set_cb_pause_level(
+        env: Env,
+        admin: Address,
+        level: PauseLevel,
+    ) -> Result<(), MessagingError> {
+        admin.require_auth();
+        ACL::require_permission(&env, &admin, &Symbol::new(&env, "pause"));
+        CircuitBreaker::set_pause_level(&env, admin, level);
+        Ok(())
+    }
+
+    pub fn pause_cb_function(
+        env: Env,
+        admin: Address,
+        func_name: Symbol,
+    ) -> Result<(), MessagingError> {
+        admin.require_auth();
+        ACL::require_permission(&env, &admin, &Symbol::new(&env, "pause"));
+        CircuitBreaker::pause_function(&env, admin, func_name);
+        Ok(())
+    }
+
+    pub fn unpause_cb_function(
+        env: Env,
+        admin: Address,
+        func_name: Symbol,
+    ) -> Result<(), MessagingError> {
+        admin.require_auth();
+        ACL::require_permission(&env, &admin, &Symbol::new(&env, "unpause"));
+        CircuitBreaker::unpause_function(&env, admin, func_name);
+        Ok(())
+    }
+
+    pub fn get_cb_state(env: Env) -> CircuitBreakerState {
+        CircuitBreaker::get_state(&env)
+    }
+
+    pub fn get_cb_config(env: Env) -> CircuitBreakerConfig {
+        CircuitBreaker::get_config(&env)
     }
 
     pub fn get_stats(env: Env) -> MessagingStats {
@@ -571,6 +673,7 @@ impl UpgradeableMessagingContract {
         Ok(ACL::has_permission(&env, &user, &permission))
     }
 
+    #[allow(dead_code)]
     fn require_admin_role(env: &Env, admin: &Address) -> Result<(), MessagingError> {
         let roles: Map<Address, GovernanceRole> = env
             .storage()

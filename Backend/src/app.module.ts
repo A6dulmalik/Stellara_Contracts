@@ -1,43 +1,20 @@
-import { AbiRegistryModule } from './abi-registry/abi-registry.module';
-import { ExperimentsModule } from './experiments/experiments.module';
-import { AnalyticsModule } from './analytics/analytics.module';
-import { KycModule } from './kyc/kyc.module';
-import { CollateralModule } from './collateral/collateral.module';
-import { GeolocationModule } from './geolocation/geolocation.module';
-
-import { AdminModule } from './admin/admin.module';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuditModule } from './audit/audit.module';
-import { AuthModule } from './auth/auth.module';
-import { BackupModule } from './backup/backup.module';
-import { ConfigModule } from '@nestjs/config';
-import { DatabaseModule } from './database.module';
-import { DocsController } from './docs/docs.controller';
-import { ErrorHandlingModule } from './common/error-handling.module';
-import { IndexAnalysisModule } from './index-analysis/index-analysis.module';
-import { LifecycleModule } from './lifecycle/lifecycle.module';
-import { LoggingModule } from './logging/logging.module';
-import { Module } from '@nestjs/common';
-import { PaymentModule } from './payment/payment.module';
-import { PrismaModule } from './prisma.module';
-import { QuotaModule } from './quota/quota.module';
-import { RabbitmqModule } from './messaging/rabbitmq/rabbitmq.module';
-import { RateLimitModule } from './rate-limiting/rate-limit.module';
-import { RedisModule } from './redis/redis.module';
-import { ReputationModule } from './reputation/reputation.module';
-import { ScheduleModule } from '@nestjs/schedule';
-import { SessionModule } from './sessions/session.module';
-import { TenantModule } from './tenant/tenant.module';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { UserModule } from './user/user.module';
-import { WebhooksModule } from './webhooks/webhooks.module';
-import { WebsocketModule } from './websocket/websocket.module';
 import { validateEnv } from './config/env.validation';
-
-import { SupportModule } from './support/support.module';
-import { MultisigModule } from './multisig/multisig.module';
+import { ReputationModule } from './reputation/reputation.module';
+import { DatabaseModule } from './database.module';
+import { HealthModule } from './health/health.module';
+import { IndexerModule } from './indexer/indexer.module';
+import { NotificationModule } from './notification/notification.module';
+import { StorageModule } from './storage/storage.module';
+import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
+import { LoggingMiddleware } from './common/middleware/logging.middleware';
+import { AppLogger } from './common/logger/app.logger';
+import { AppCacheModule } from './cache/cache.module';
 
 @Module({
   imports: [
@@ -46,59 +23,34 @@ import { MultisigModule } from './multisig/multisig.module';
       envFilePath: '.env',
       validate: validateEnv,
     }),
-    ScheduleModule.forRoot(),
-    // Structured logging with correlation IDs and performance tracing
-    LoggingModule.forRoot({
-      enableRequestLogging: true,
-      enablePerformanceTracing: true,
-      defaultContext: 'Application',
-    }),
-    // Global rate limiting with Redis storage
     ThrottlerModule.forRootAsync({
-      useFactory: () =>
-        ({
-          ttl: 60, // time window in seconds
-          limit: 100, // default requests per window
-          storage: new ThrottlerStorageRedisService({
-            host: process.env.REDIS_HOST || 'localhost',
-            port: parseInt(process.env.REDIS_PORT || '6379', 10),
-            password: process.env.REDIS_PASSWORD || undefined,
-          }),
-        }) as never,
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: 60000,
+            limit: 100,
+          },
+        ],
+      }),
     }),
-    // Error handling with global filters
-    ErrorHandlingModule,
-    // Comprehensive audit logging for compliance
-    AuditModule,
     ReputationModule,
-    RedisModule,
     DatabaseModule,
-    PrismaModule,
-    LifecycleModule,
-    RateLimitModule,
-    SessionModule,
-    IndexAnalysisModule,
-    AuthModule,
-    WebsocketModule,
-    PaymentModule,
-    // Backup and disaster recovery module
-    BackupModule,
-    QuotaModule,
-    AdminModule,
-    TenantModule,
-    WebhooksModule,
-    RabbitmqModule,
-    AbiRegistryModule,
-    SupportModule,
-    MultisigModule,
-    AnalyticsModule,
-    ExperimentsModule,
-    KycModule,
-    CollateralModule,
-    GeolocationModule,
+    HealthModule,
+    IndexerModule,
+    NotificationModule,
+    StorageModule,
+    AppCacheModule,
     UserModule,
   ],
-  controllers: [AppController, DocsController],
-  providers: [AppService],
+  controllers: [AppController],
+  providers: [AppService, AppLogger],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(CorrelationIdMiddleware, LoggingMiddleware)
+      .forRoutes('*');
+  }
+}
