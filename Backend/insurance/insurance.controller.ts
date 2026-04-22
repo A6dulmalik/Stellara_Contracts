@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Param, Body, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { InsuranceService } from './insurance.service';
 import { ClaimService } from './claim.service';
 import { ReinsuranceService } from './reinsurance.service';
@@ -8,6 +9,7 @@ import { CreateClaimDto } from './dto/create-claim.dto';
 import { CreateReinsuranceDto } from './dto/create-reinsurance.dto';
 
 @Controller('insurance')
+@Throttle({ default: { limit: 10, ttl: 60000 } })
 export class InsuranceController {
   constructor(
     private readonly insurance: InsuranceService,
